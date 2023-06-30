@@ -1,0 +1,160 @@
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  StyleSheet,
+  Modal,
+  Animated,
+  Dimensions,
+  PanResponder,
+  TouchableWithoutFeedback,
+  ScrollView,
+} from "react-native";
+import { Icon } from "@rneui/themed";
+
+const BottomSheet = ({ setVisible, visible, children }) => {
+  const [panY] = useState(new Animated.Value(Dimensions.get("screen").height));
+  const [handlePosition] = useState(new Animated.ValueXY());
+  const [isDragging, setIsDragging] = useState(false);
+  const [contentHeight, setContentHeight] = useState(
+    Dimensions.get("screen").height * 0.5
+  );
+  const [containerHeight, setContainerHeight] = useState(
+    Dimensions.get("screen").height * 0.5
+  );
+
+  const _panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: (e, gestureState) => {
+      if (isDragging) {
+        Animated.event([null, { dy: panY }], { useNativeDriver: false })(
+          e,
+          gestureState
+        );
+      }
+    },
+    onPanResponderRelease: (e, gs) => {
+      if (gs.dy > 0 && gs.vy > 1) {
+        setIsDragging(false);
+        closeBottomSheet();
+      } else {
+        setIsDragging(false);
+        resetBottomSheet();
+      }
+    },
+  });
+
+  useEffect(() => {
+    const newContainerHeight =
+      contentHeight < Dimensions.get("screen").height * 0.5
+        ? contentHeight < 200
+          ? contentHeight + 100
+          : contentHeight
+        : Dimensions.get("screen").height * 0.5;
+
+    setContainerHeight(newContainerHeight);
+
+    if (visible) {
+      resetBottomSheet();
+    }
+  }, [contentHeight]);
+
+  useEffect(() => {
+    if (visible) {
+      resetBottomSheet();
+    }
+  }, [visible]);
+
+  const top = panY.interpolate({
+    inputRange: [0, containerHeight],
+    outputRange: [0, containerHeight],
+    extrapolate: "clamp",
+  });
+
+  const resetBottomSheet = () => {
+    Animated.timing(panY, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const closeBottomSheet = () => {
+    Animated.timing(panY, {
+      toValue: Dimensions.get("screen").height,
+      duration: 0,
+      useNativeDriver: false,
+    }).start(onDismiss);
+  };
+
+  const handleContentViewClick = () => {
+    closeBottomSheet();
+  };
+
+  const onContentSizeChange = (_, height) => {
+    setContentHeight(height);
+  };
+
+  const styles = StyleSheet.create({
+    overlay: {
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      flex: 1,
+      justifyContent: "flex-end",
+    },
+    container: {
+      backgroundColor: "#fff",
+      height: containerHeight,
+      borderTopRightRadius: 12,
+      borderTopLeftRadius: 12,
+    },
+    handleContainer: {
+      alignItems: "center",
+      paddingTop: 8,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollViewContent: {
+      paddingBottom: 16,
+    },
+    overlayContent: {
+      flex: 1,
+    },
+  });
+
+  const onDismiss = () => {
+    setVisible(false);
+  };
+
+  return (
+    <Modal
+      animationType="fade"
+      visible={visible}
+      transparent={true}
+      onRequestClose={onDismiss}
+    >
+      <View style={styles.overlay}>
+        <TouchableWithoutFeedback onPress={handleContentViewClick}>
+          <View style={styles.overlayContent} />
+        </TouchableWithoutFeedback>
+        <Animated.View
+          style={[styles.container, { top }]}
+          {...(isDragging ? _panResponder.panHandlers : null)}
+        >
+          <View style={styles.handleContainer} {..._panResponder.panHandlers}>
+            <Icon name="drag-handle" type="material" />
+          </View>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            onContentSizeChange={onContentSizeChange}
+          >
+            {children}
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
+export default BottomSheet;
